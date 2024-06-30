@@ -15,9 +15,13 @@ body,
 :host {
   hyphens: auto;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
   word-break: normal;
   word-break: auto-phrase;
+}
+
+.my-app,
+:host {
+  white-space: pre-wrap;
 }
 
 * {
