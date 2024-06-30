@@ -46,9 +46,15 @@ const sharedStyles = {
     fontFamily: `var(${cssVars.font})`,
     [`.${classNames.editMode} &`]: {
       backgroundColor: `rgba(0, 0, 0, 0.1)`,
+      "&::placeholder": {
+        color: `rgba(0, 0, 0, 0.1)`,
+      },
     },
     [`.${classNames.editMode}.${classNames.blueBg} &`]: {
       backgroundColor: `rgba(0, 0, 0, 0.2)`,
+      "&::placeholder": {
+        color: `rgba(0, 0, 0, 0.2)`,
+      },
     },
     color: `var(${cssVars.textColor})`,
   }),
@@ -155,21 +161,21 @@ const App: FC = () => {
           sx={styles.name}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Name"
+          placeholder={!editMode ? undefined : "安藤 海斗"}
         />
         <Box
           component="input"
           sx={styles.subName}
           value={subName}
           onChange={(e) => setSubName(e.target.value)}
-          placeholder="Sub Name"
+          placeholder={!editMode ? undefined : "Ando Kaito"}
         />
         <Box
           component="input"
           sx={styles.title}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title"
+          placeholder={!editMode ? undefined : "Fun-end Engineer"}
         />
         <Box sx={styles.underline} />
       </Box>
