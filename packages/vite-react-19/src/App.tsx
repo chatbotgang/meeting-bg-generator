@@ -6,6 +6,7 @@ import {
   Checkbox,
   FormControl,
   FormLabel,
+  IconButton,
   Radio,
   RadioGroup,
 } from "@mui/joy";
@@ -18,6 +19,7 @@ import { type FC, useRef, useState } from "react";
 
 import blue from "./assets/MeetingBG_Engineer_Empty_blue.png";
 import white from "./assets/MeetingBG_Engineer_Empty_white.png";
+import { SimpleIconsGithub } from "./icons/SimpleIconsGithub";
 
 const defaultFontFamily =
   "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif";
@@ -274,6 +276,14 @@ const App: FC = () => {
         >
           Download
         </Button>
+        <IconButton
+          component="a"
+          href="https://github.com/chatbotgang/meeting-bg-generator"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <SimpleIconsGithub />
+        </IconButton>
       </Box>
     </Box>
   );
