@@ -23,8 +23,12 @@
     "clsx",
     "cresclab",
     "jsdoc",
+    "noto",
     "nums",
     "nvmrc",
-    "tsdoc"
+    "tldraw",
+    "tlui",
+    "tsdoc",
+    "zustand"
   ]
 }

@@ -1,5 +1,5 @@
-import "@fontsource/inter";
 import "@repo/css-reset";
+import "tldraw/tldraw.css";
 import "./style.css";
 
 import { StrictMode } from "react";
