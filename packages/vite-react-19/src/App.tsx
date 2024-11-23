@@ -9,13 +9,15 @@ import {
   IconButton,
   Radio,
   RadioGroup,
+  Slider,
 } from "@mui/joy";
 import type { SxProps } from "@mui/joy/styles/types";
+import useEventCallback from "@mui/utils/useEventCallback";
 import { clsx } from "clsx";
 import { toPng } from "html-to-image";
 import pick from "lodash/pick";
 import { nanoid } from "nanoid";
-import { type FC, useRef, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 
 import blue from "./assets/MeetingBG_Engineer_Empty_blue.png";
 import white from "./assets/MeetingBG_Engineer_Empty_white.png";
@@ -132,6 +134,8 @@ const styles = {
   }),
 } satisfies Record<PropertyKey, SxProps>;
 
+const maxScale = 1;
+
 const App: FC = () => {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [editMode, setEditMode] = useState<boolean>(true);
@@ -140,6 +144,30 @@ const App: FC = () => {
   const [name, setName] = useState<string>("安藤 海斗");
   const [subName, setSubName] = useState<string>("Ando Kaito");
   const [title, setTitle] = useState<string>("Fun-end Engineer");
+  const [scale, setScale] = useState<number>(1);
+  const fitScale = useEventCallback(async () => {
+    if (!canvasRef.current) return;
+    const canvasNode = canvasRef.current;
+    const { width, height } = canvasNode.getBoundingClientRect();
+    const realWidth = width / scale;
+    const realHeight = height / scale;
+    const scaleX = window.innerWidth / realWidth;
+    const scaleY = window.innerHeight / realHeight;
+    const nextScale = Math.min(scaleX, scaleY, maxScale);
+    setScale(nextScale);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    canvasNode.scrollIntoView({
+      block: "center",
+      inline: "center",
+    });
+  });
+  const fullScale = useEventCallback(() => {
+    setScale(maxScale);
+  });
+  useEffect(() => {
+    // Fit scale on mount
+    fitScale();
+  }, [fitScale]);
   return (
     <Box
       sx={styles.painter}
@@ -156,6 +184,7 @@ const App: FC = () => {
         sx={styles.canvas}
         style={{
           background: `url(${bgType === "blue" ? blue : white}) no-repeat center center`,
+          transform: `scale(${scale})`,
         }}
       >
         <Box
@@ -193,6 +222,27 @@ const App: FC = () => {
             label="Edit Mode"
           />
         </Box>
+        <FormControl
+          sx={{
+            alignSelf: "stretch",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+          }}
+        >
+          <FormLabel>Scale</FormLabel>
+          <Slider
+            value={scale}
+            onChange={(_e, value) => setScale(value as number)}
+            step={0.01}
+            min={0.5}
+            max={1}
+          />
+          <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
+            <Button onClick={fitScale}>Fit</Button>
+            <Button onClick={fullScale}>Full</Button>
+          </Box>
+        </FormControl>
         <FormControl
           sx={{
             alignSelf: "stretch",
@@ -267,6 +317,7 @@ const App: FC = () => {
             if (!canvasRef.current) return;
             const canvasNode = canvasRef.current;
             setEditMode(false);
+            setScale(1);
             const dataUrl = await toPng(canvasNode);
             const link = document.createElement("a");
             link.download = `MeetingBG_Engineer_Empty_${bgType}.png`;
