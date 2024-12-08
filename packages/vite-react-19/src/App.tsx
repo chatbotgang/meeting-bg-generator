@@ -356,7 +356,7 @@ function initBg(editor: Editor, color: "blue" | "white") {
     {
       type: "text",
       x: LINE_LEFT,
-      y: 885,
+      y: 886,
       props: {
         font: "sans",
         text: "Fun-end Engineer",
@@ -368,7 +368,7 @@ function initBg(editor: Editor, color: "blue" | "white") {
     {
       type: "text",
       x: LINE_LEFT,
-      y: 813,
+      y: 805.16,
       props: {
         font: "sans",
         text: "安藤 海斗",
@@ -379,8 +379,8 @@ function initBg(editor: Editor, color: "blue" | "white") {
     },
     {
       type: "text",
-      x: LINE_LEFT + 300,
-      y: 813 + 64 - 48,
+      x: LINE_LEFT + 284,
+      y: 826.877,
       props: {
         font: "sans",
         text: "(超かわ (*･ω･) ﾉ)",
@@ -392,7 +392,7 @@ function initBg(editor: Editor, color: "blue" | "white") {
     {
       type: "text",
       x: LINE_LEFT,
-      y: 772,
+      y: 765,
       props: {
         font: "sans",
         text: "Ando Kaito",
