@@ -44,6 +44,32 @@ import simpleIconsGithubSvg from "./icons/simple-icons--github.svg?url";
 const LOCAL_STORAGE_KEY_SANS = "clmbg-sans";
 const LOCAL_STORAGE_KEY_TL_STORE = "clmbg-tl";
 
+/**
+ * The URL of images changes in each build, so we need to replace them with
+ * placeholders.
+ */
+const imgAlt = (() => {
+  const altRecord = {
+    "{{ALT_BG_BLUE}}": bgBlue,
+    "{{ALT_BG_WHITE}}": bgWhite,
+  } satisfies Record<string, string>;
+  function encode(stringified: string) {
+    let encoded = stringified;
+    for (const [key, value] of Object.entries(altRecord)) {
+      encoded = encoded.replace(value, key);
+    }
+    return encoded;
+  }
+  function decode(stringified: string) {
+    let decoded = stringified;
+    for (const [key, value] of Object.entries(altRecord)) {
+      decoded = decoded.replace(key, value);
+    }
+    return decoded;
+  }
+  return { encode, decode };
+})();
+
 const langs = ["en", "zh-TW", "ja", "th"] as const;
 type Lang = (typeof langs)[number];
 
@@ -530,12 +556,15 @@ const store = (() => {
   const snapshot: Parameters<typeof loadSnapshot>[1] = !stringified
     ? {}
     : // This can be dangerous if the stringified data is not safe
-      (JSON.parse(stringified) as any);
+      (JSON.parse(imgAlt.decode(stringified)) as any);
   loadSnapshot(store, snapshot);
 
   const saveToLocalStorage = () => {
     const snapshot = store.getStoreSnapshot();
-    localStorage.setItem(LOCAL_STORAGE_KEY_TL_STORE, JSON.stringify(snapshot));
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY_TL_STORE,
+      imgAlt.encode(JSON.stringify(snapshot)),
+    );
   };
   const throttledSave = throttle(saveToLocalStorage, 300);
   store.listen(throttledSave);
