@@ -22,10 +22,12 @@ import {
   setUserPreferences,
   ShapeUtil,
   StateNode,
+  TextShapeUtil,
   type TLBaseShape,
   type TLComponents,
   Tldraw,
   TldrawUiMenuItem,
+  type TLTextShape,
   type TLUiOverrides,
   type TLUiToolsContextType,
   useTools,
@@ -99,14 +101,17 @@ const langToSans: Record<Lang, string> = {
 
 const lang: Lang = detectLang();
 
-DefaultFontFamilies.sans = "var(--sans)";
-
 const useSansStore = create<{ sans: string }>()(
   persist<{ sans: string }>(() => ({ sans: langToSans[lang] }), {
     name: LOCAL_STORAGE_KEY_SANS,
     storage: createJSONStorage(() => localStorage),
   }),
 );
+
+DefaultFontFamilies.sans = useSansStore.getState().sans;
+useSansStore.subscribe((state) => {
+  DefaultFontFamilies.sans = state.sans;
+});
 
 if (useSansStore.getState().sans.trim() === "") {
   useSansStore.setState({ sans: langToSans[lang] });
@@ -148,7 +153,18 @@ const LanguageSelector: FC = () => {
 
 const Font: FC = () => {
   const sans = useSans();
-  const __html = useMemo(() => `:root { --sans: ${sans}; }`, [sans]);
+  const __html = useMemo(
+    () => `
+.tl-theme__dark {
+  --tl-text-outline: none !important;
+  --tl-font-sans: ${sans};
+}
+text[stroke] {
+  display: none !important;
+}  
+`,
+    [sans],
+  );
   const dangerouslySetInnerHTML: ComponentProps<"style">["dangerouslySetInnerHTML"] =
     useMemo(
       () => ({
@@ -235,6 +251,36 @@ function clearEditor(editor: Editor) {
   clearAssets(editor);
 }
 
+/**
+ * Fix the text auto-size issue by updating the text shape.
+ */
+function fixTextAutoSize(editor: Editor) {
+  const textShapeUtils = editor.shapeUtils["text"];
+  if (!(textShapeUtils instanceof TextShapeUtil)) return;
+  const shapes = editor.getCurrentPageShapes();
+  const textShapes = shapes.filter(
+    (shape): shape is TLTextShape => shape.type === "text",
+  );
+  for (const textShape of textShapes) {
+    // Update the text shape to trigger a re-render
+    const currentText = textShape.props.text;
+    editor.updateShape({
+      id: textShape.id,
+      type: textShape.type,
+      props: {
+        text: "",
+      },
+    });
+    editor.updateShape({
+      id: textShape.id,
+      type: textShape.type,
+      props: {
+        text: currentText,
+      },
+    });
+  }
+}
+
 const HEIGHT = 1080;
 const WIDTH = 1920;
 const LINE_LENGTH = 515;
@@ -317,8 +363,6 @@ function initBg(editor: Editor, color: "blue" | "white") {
         color: theme.title,
         size: "m",
         scale: 1.5, // 36 / 24
-        w: 380,
-        autoSize: false,
       },
     },
     {
@@ -331,8 +375,6 @@ function initBg(editor: Editor, color: "blue" | "white") {
         color: theme.name,
         size: "m",
         scale: 2.67, // 64 / 24
-        w: 380,
-        autoSize: false,
       },
     },
     {
@@ -345,8 +387,6 @@ function initBg(editor: Editor, color: "blue" | "white") {
         color: theme.nick,
         size: "m",
         scale: 2, // 48 / 24
-        w: 380,
-        autoSize: false,
       },
     },
     {
@@ -359,8 +399,6 @@ function initBg(editor: Editor, color: "blue" | "white") {
         color: theme.subName,
         size: "m",
         scale: 1.33, // 32 / 24
-        w: 380,
-        autoSize: false,
       },
     },
   ]);
@@ -519,24 +557,7 @@ class StyledShapeUtil extends ShapeUtil<StyledShape> {
     });
   }
   component(_shape: StyledShape) {
-    return (
-      <div>
-        <Font />
-        {/* eslint-disable-next-line react-dom/no-dangerously-set-innerhtml */}
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `.tl-theme__dark {
-  --tl-text-outline: none !important;
-  --tl-font-sans: var(--sans);
-}
-text[stroke] {
-  display: none !important;
-}  
-`,
-          }}
-        />
-      </div>
-    );
+    return <Font />;
   }
   indicator() {
     return null;
@@ -594,6 +615,15 @@ const onMount: ComponentProps<typeof Tldraw>["onMount"] = (editor) => {
      */
     initBg(editor, "blue");
   }
+  useSansStore.subscribe(() => {
+    // After the font is updated, adjust the text size based on the new font.
+    // Since the font update occurs only after React re-renders, we need to wait
+    // until the next tick.
+    setTimeout(() => {
+      fixTextAutoSize(editor);
+    }, 0);
+  });
+  fixTextAutoSize(editor);
   editor.zoomToFit();
 };
 
