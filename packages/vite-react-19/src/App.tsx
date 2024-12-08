@@ -22,10 +22,12 @@ import {
   setUserPreferences,
   ShapeUtil,
   StateNode,
+  TextShapeUtil,
   type TLBaseShape,
   type TLComponents,
   Tldraw,
   TldrawUiMenuItem,
+  type TLTextShape,
   type TLUiOverrides,
   type TLUiToolsContextType,
   useTools,
@@ -43,6 +45,32 @@ import simpleIconsGithubSvg from "./icons/simple-icons--github.svg?url";
 
 const LOCAL_STORAGE_KEY_SANS = "clmbg-sans";
 const LOCAL_STORAGE_KEY_TL_STORE = "clmbg-tl";
+
+/**
+ * The URL of images changes in each build, so we need to replace them with
+ * placeholders.
+ */
+const imgAlt = (() => {
+  const altRecord = {
+    "{{ALT_BG_BLUE}}": bgBlue,
+    "{{ALT_BG_WHITE}}": bgWhite,
+  } satisfies Record<string, string>;
+  function encode(stringified: string) {
+    let encoded = stringified;
+    for (const [key, value] of Object.entries(altRecord)) {
+      encoded = encoded.replace(value, key);
+    }
+    return encoded;
+  }
+  function decode(stringified: string) {
+    let decoded = stringified;
+    for (const [key, value] of Object.entries(altRecord)) {
+      decoded = decoded.replace(key, value);
+    }
+    return decoded;
+  }
+  return { encode, decode };
+})();
 
 const langs = ["en", "zh-TW", "ja", "th"] as const;
 type Lang = (typeof langs)[number];
@@ -73,14 +101,17 @@ const langToSans: Record<Lang, string> = {
 
 const lang: Lang = detectLang();
 
-DefaultFontFamilies.sans = "var(--sans)";
-
 const useSansStore = create<{ sans: string }>()(
   persist<{ sans: string }>(() => ({ sans: langToSans[lang] }), {
     name: LOCAL_STORAGE_KEY_SANS,
     storage: createJSONStorage(() => localStorage),
   }),
 );
+
+DefaultFontFamilies.sans = useSansStore.getState().sans;
+useSansStore.subscribe((state) => {
+  DefaultFontFamilies.sans = state.sans;
+});
 
 if (useSansStore.getState().sans.trim() === "") {
   useSansStore.setState({ sans: langToSans[lang] });
@@ -122,7 +153,18 @@ const LanguageSelector: FC = () => {
 
 const Font: FC = () => {
   const sans = useSans();
-  const __html = useMemo(() => `:root { --sans: ${sans}; }`, [sans]);
+  const __html = useMemo(
+    () => `
+.tl-theme__dark {
+  --tl-text-outline: none !important;
+  --tl-font-sans: ${sans};
+}
+text[stroke] {
+  display: none !important;
+}  
+`,
+    [sans],
+  );
   const dangerouslySetInnerHTML: ComponentProps<"style">["dangerouslySetInnerHTML"] =
     useMemo(
       () => ({
@@ -209,6 +251,36 @@ function clearEditor(editor: Editor) {
   clearAssets(editor);
 }
 
+/**
+ * Fix the text auto-size issue by updating the text shape.
+ */
+function fixTextAutoSize(editor: Editor) {
+  const textShapeUtils = editor.shapeUtils["text"];
+  if (!(textShapeUtils instanceof TextShapeUtil)) return;
+  const shapes = editor.getCurrentPageShapes();
+  const textShapes = shapes.filter(
+    (shape): shape is TLTextShape => shape.type === "text",
+  );
+  for (const textShape of textShapes) {
+    // Update the text shape to trigger a re-render
+    const currentText = textShape.props.text;
+    editor.updateShape({
+      id: textShape.id,
+      type: textShape.type,
+      props: {
+        text: "",
+      },
+    });
+    editor.updateShape({
+      id: textShape.id,
+      type: textShape.type,
+      props: {
+        text: currentText,
+      },
+    });
+  }
+}
+
 const HEIGHT = 1080;
 const WIDTH = 1920;
 const LINE_LENGTH = 515;
@@ -284,57 +356,49 @@ function initBg(editor: Editor, color: "blue" | "white") {
     {
       type: "text",
       x: LINE_LEFT,
-      y: 885,
+      y: 886,
       props: {
         font: "sans",
         text: "Fun-end Engineer",
         color: theme.title,
         size: "m",
         scale: 1.5, // 36 / 24
-        w: 380,
-        autoSize: false,
       },
     },
     {
       type: "text",
       x: LINE_LEFT,
-      y: 813,
+      y: 805.16,
       props: {
         font: "sans",
         text: "安藤 海斗",
         color: theme.name,
         size: "m",
         scale: 2.67, // 64 / 24
-        w: 380,
-        autoSize: false,
       },
     },
     {
       type: "text",
-      x: LINE_LEFT + 300,
-      y: 813 + 64 - 48,
+      x: LINE_LEFT + 284,
+      y: 826.877,
       props: {
         font: "sans",
         text: "(超かわ (*･ω･) ﾉ)",
         color: theme.nick,
         size: "m",
         scale: 2, // 48 / 24
-        w: 380,
-        autoSize: false,
       },
     },
     {
       type: "text",
       x: LINE_LEFT,
-      y: 772,
+      y: 765,
       props: {
         font: "sans",
         text: "Ando Kaito",
         color: theme.subName,
         size: "m",
         scale: 1.33, // 32 / 24
-        w: 380,
-        autoSize: false,
       },
     },
   ]);
@@ -493,24 +557,7 @@ class StyledShapeUtil extends ShapeUtil<StyledShape> {
     });
   }
   component(_shape: StyledShape) {
-    return (
-      <div>
-        <Font />
-        {/* eslint-disable-next-line react-dom/no-dangerously-set-innerhtml */}
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `.tl-theme__dark {
-  --tl-text-outline: none !important;
-  --tl-font-sans: var(--sans);
-}
-text[stroke] {
-  display: none !important;
-}  
-`,
-          }}
-        />
-      </div>
-    );
+    return <Font />;
   }
   indicator() {
     return null;
@@ -530,12 +577,15 @@ const store = (() => {
   const snapshot: Parameters<typeof loadSnapshot>[1] = !stringified
     ? {}
     : // This can be dangerous if the stringified data is not safe
-      (JSON.parse(stringified) as any);
+      (JSON.parse(imgAlt.decode(stringified)) as any);
   loadSnapshot(store, snapshot);
 
   const saveToLocalStorage = () => {
     const snapshot = store.getStoreSnapshot();
-    localStorage.setItem(LOCAL_STORAGE_KEY_TL_STORE, JSON.stringify(snapshot));
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY_TL_STORE,
+      imgAlt.encode(JSON.stringify(snapshot)),
+    );
   };
   const throttledSave = throttle(saveToLocalStorage, 300);
   store.listen(throttledSave);
@@ -565,6 +615,15 @@ const onMount: ComponentProps<typeof Tldraw>["onMount"] = (editor) => {
      */
     initBg(editor, "blue");
   }
+  useSansStore.subscribe(() => {
+    // After the font is updated, adjust the text size based on the new font.
+    // Since the font update occurs only after React re-renders, we need to wait
+    // until the next tick.
+    setTimeout(() => {
+      fixTextAutoSize(editor);
+    }, 0);
+  });
+  fixTextAutoSize(editor);
   editor.zoomToFit();
 };
 
